@@ -1,0 +1,78 @@
+x-bartl:
+  product: wordpress
+  state:
+    databases:
+      - name: wordpress
+        host: db
+        port: 3306
+        user: wordpress
+        password_env: MYSQL_PASSWORD
+    filesystems:
+      - path: /var/www/html/wp-content/uploads
+        container: wordpress
+  backup:
+    target: ./backups
+
+volumes:
+  db-data:
+  wp-content:
+  bartl-shared:
+
+services:
+  bartl-init:
+    image: debian:bookworm-slim
+    volumes:
+      - ./init.sh:/init.sh:ro
+      - ./backup.sh:/backup.sh:ro
+      - bartl-shared:/bartl
+      - db-data:/var/lib/mysql
+      - wp-content:/var/www/html/wp-content
+      - ./backups:/backups
+    environment:
+      MYSQL_HOST: db
+      MYSQL_PORT: "3306"
+      MYSQL_USER: root
+      MYSQL_PASSWORD: rootpass
+      MYSQL_DATABASE: wordpress
+      WORDPRESS_VERSION: "6.7"
+      BARTL_BACKUP_DIR: /backups
+      BARTL_SHARED: /bartl
+    entrypoint: ["/bin/bash", "/init.sh"]
+    depends_on:
+      db:
+        condition: service_started
+
+  db:
+    image: mysql:8.0
+    volumes:
+      - db-data:/var/lib/mysql
+      - bartl-shared:/bartl:ro
+      - ./override-entrypoint.sh:/override-entrypoint.sh:ro
+    entrypoint: ["/bin/bash", "/override-entrypoint.sh", "docker-entrypoint.sh", "mysqld"]
+    environment:
+      MYSQL_ROOT_PASSWORD: rootpass
+      MYSQL_DATABASE: wordpress
+      MYSQL_USER: wordpress
+      MYSQL_PASSWORD: wordpresspass
+      BARTL_ROLE: db
+      BARTL_SHARED: /bartl
+
+  wordpress:
+    image: wordpress:6.7-apache
+    ports:
+      - "8080:80"
+    volumes:
+      - wp-content:/var/www/html/wp-content
+      - bartl-shared:/bartl:ro
+      - ./override-entrypoint.sh:/override-entrypoint.sh:ro
+    entrypoint: ["/bin/bash", "/override-entrypoint.sh", "docker-entrypoint.sh", "apache2-foreground"]
+    environment:
+      WORDPRESS_DB_HOST: db:3306
+      WORDPRESS_DB_USER: wordpress
+      WORDPRESS_DB_PASSWORD: wordpresspass
+      WORDPRESS_DB_NAME: wordpress
+      BARTL_ROLE: app
+      BARTL_SHARED: /bartl
+    depends_on:
+      db:
+        condition: service_started
