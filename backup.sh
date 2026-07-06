@@ -55,7 +55,6 @@ main() {
     check_dependencies
     wait_for_db
 
-    local work_dir
     work_dir=$(mktemp -d)
     trap 'rm -rf "$work_dir"' EXIT
 
@@ -90,14 +89,28 @@ fqdn=${BARTL_FQDN}
 database=${MYSQL_DATABASE}
 EOF
 
+    # Checksum every member of the blob. SHA256SUMS travels inside the blob and
+    # is what the restore path verifies before loading any state. This is the
+    # integrity half of the pattern's fetch_backup() - a blob that fails
+    # verification is not restored.
+    log "Computing checksums..."
+    ( cd "$work_dir" && sha256sum -- * > SHA256SUMS )
+    log "Checksums:"
+    sed 's/^/  /' "$work_dir/SHA256SUMS"
+
     # Combine into final blob
     mkdir -p "$BARTL_BACKUP_DIR"
     log "Creating backup blob: ${BLOB_NAME}"
     tar -czf "$BARTL_BACKUP_DIR/$BLOB_NAME" -C "$work_dir" .
 
+    # Sidecar checksum of the whole blob, so integrity can be checked before the
+    # blob is even opened (e.g. after transfer to another provider).
+    ( cd "$BARTL_BACKUP_DIR" && sha256sum -- "$BLOB_NAME" > "${BLOB_NAME}.sha256" )
+
     local blob_size
     blob_size=$(wc -c < "$BARTL_BACKUP_DIR/$BLOB_NAME")
     log "Backup complete: ${BARTL_BACKUP_DIR}/${BLOB_NAME} (${blob_size} bytes)"
+    log "Sidecar checksum: ${BARTL_BACKUP_DIR}/${BLOB_NAME}.sha256"
 }
 
 main "$@"
