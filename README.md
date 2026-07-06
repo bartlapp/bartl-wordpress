@@ -2,7 +2,7 @@
 
 A stateful WordPress stack made fully portable. Install, restore, upgrade, migration, and disaster recovery are one operation, driven by observed state - not five separate procedures. This is the reference implementation of the Bartl pattern.
 
-For the full thesis, see [bartl.app](https://github.com/bartl-app/bartl.app).
+For the full thesis, see [bartl.app](https://bartl.app).
 
 ## The design point
 
