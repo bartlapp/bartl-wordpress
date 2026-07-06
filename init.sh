@@ -80,13 +80,53 @@ restore_uploads() {
     log "Uploads restored."
 }
 
+verify_blob_sidecar() {
+    local backup_blob="$1"
+    local sidecar="${backup_blob}.sha256"
+    if [ ! -f "$sidecar" ]; then
+        log "No sidecar checksum found next to blob - skipping pre-extraction check."
+        return 0
+    fi
+    log "Verifying blob integrity against ${sidecar}..."
+    if ( cd "$(dirname "$backup_blob")" && sha256sum -c "$(basename "$sidecar")" >/dev/null 2>&1 ); then
+        log "Blob checksum OK."
+        return 0
+    fi
+    log "ERROR: Blob checksum mismatch - refusing to restore from a corrupt blob."
+    return 1
+}
+
+verify_members() {
+    local work_dir="$1"
+    if [ ! -f "$work_dir/SHA256SUMS" ]; then
+        log "WARNING: No SHA256SUMS in blob - cannot verify member integrity."
+        return 0
+    fi
+    log "Verifying blob member checksums..."
+    if ( cd "$work_dir" && sha256sum -c SHA256SUMS >/dev/null 2>&1 ); then
+        log "Member checksums OK."
+        return 0
+    fi
+    log "ERROR: Member checksum mismatch - refusing to load corrupt state."
+    return 1
+}
+
 restore_from_backup() {
     local backup_blob="$1"
     local work_dir
     work_dir=$(mktemp -d)
 
+    if ! verify_blob_sidecar "$backup_blob"; then
+        exit 1
+    fi
+
     log "Extracting backup blob: ${backup_blob}"
     tar -xzf "$backup_blob" -C "$work_dir"
+
+    if ! verify_members "$work_dir"; then
+        rm -rf "$work_dir"
+        exit 1
+    fi
 
     # Signal DB to start - we need it for the restore
     touch "$MARKER_AWAITS_DB"
@@ -129,17 +169,17 @@ vanilla_install() {
     log "Vanilla install complete."
 }
 
-check_upgrade() {
-    if [ ! -f "$VERSION_FILE" ]; then
-        return 1
-    fi
-    local old_version
-    old_version=$(cat "$VERSION_FILE")
-    if [ "$old_version" != "$WORDPRESS_VERSION" ]; then
-        log "Upgrade detected: ${old_version} -> ${WORDPRESS_VERSION}"
-        return 0
-    fi
-    return 1
+# version_gt A B: true if version A is strictly greater than version B.
+version_gt() {
+    [ "$1" != "$2" ] && [ "$(printf '%s\n%s\n' "$1" "$2" | sort -V | tail -n 1)" = "$1" ]
+}
+
+serve_existing() {
+    log "Local state present at version ${WORDPRESS_VERSION} - serving (reboot, no state change)."
+    # The DB container is parked waiting for a marker; release it.
+    touch "$MARKER_AWAITS_DB"
+    wait_for_db
+    log "Ready to serve."
 }
 
 handle_upgrade() {
@@ -168,8 +208,26 @@ main() {
     local backup
     backup=$(find_latest_backup)
 
-    if [ -f "$VERSION_FILE" ] && check_upgrade; then
-        handle_upgrade
+    # The decision is on observed state, not on a requested operation.
+    #   local state exists?  -> compare engine version to state version
+    #       equal    -> serve (reboot)
+    #       engine > -> migrate (upgrade)
+    #       engine < -> abort (downgrade)
+    #   no local state?      -> backup present -> restore, else -> init
+    if [ -f "$VERSION_FILE" ]; then
+        local state_version
+        state_version=$(cat "$VERSION_FILE")
+        if [ "$state_version" = "$WORDPRESS_VERSION" ]; then
+            serve_existing
+        elif version_gt "$WORDPRESS_VERSION" "$state_version"; then
+            log "Upgrade detected: ${state_version} -> ${WORDPRESS_VERSION}"
+            handle_upgrade
+        else
+            log "ERROR: engine ${WORDPRESS_VERSION} is older than state ${state_version}."
+            log "Refusing to run old code against a newer schema (downgrade)."
+            log "To go back, restore a pre-upgrade backup and restart - that is the DR path."
+            exit 1
+        fi
     elif [ -n "$backup" ]; then
         log "Backup found: ${backup}"
         restore_from_backup "$backup"
