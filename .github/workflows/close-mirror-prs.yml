@@ -1,0 +1,37 @@
+name: Close mirror pull requests
+
+on:
+  pull_request_target:
+    types: [opened, reopened]
+
+permissions:
+  pull-requests: write
+  issues: write
+
+jobs:
+  close:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/github-script@v7
+        with:
+          script: |
+            const n = context.payload.pull_request.number;
+            const body = [
+              "Thanks for your interest in this project.",
+              "",
+              "This GitHub repository is a read-only mirror of https://codeberg.org/bartlapp/bartl-wordpress. Development happens on Codeberg, so pull requests opened here cannot be merged and are closed automatically.",
+              "",
+              "Please open your pull request on Codeberg instead. Thank you.",
+            ].join("\n");
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: n,
+              body,
+            });
+            await github.rest.pulls.update({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              pull_number: n,
+              state: "closed",
+            });
