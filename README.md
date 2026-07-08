@@ -26,7 +26,7 @@ The same restore path serves disaster recovery, migration to another host, and e
 ## Quickstart
 
 ```
-git clone https://github.com/bartl-app/bartl-wordpress.git
+git clone https://codeberg.org/bartlapp/bartl-wordpress.git
 cd bartl-wordpress
 docker compose up -d
 ```
