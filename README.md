@@ -2,7 +2,7 @@
 
 > The home of this project is [codeberg.org/bartlapp/bartl-wordpress](https://codeberg.org/bartlapp/bartl-wordpress). The GitHub repository is a read-only mirror - please open issues and pull requests on Codeberg.
 
-A stateful WordPress stack made fully portable. Install, restore, upgrade, migration, and disaster recovery are one operation, driven by observed state - not five separate procedures. This is the reference implementation of the Bartl pattern.
+A stateful WordPress stack whose application state is portable across compatible Docker hosts. Install, restore, upgrade, migration, and disaster recovery use one mechanism, driven by observed state - not five separate procedures. This is the reference implementation of the Bartl pattern.
 
 For the full thesis, see [bartl.app](https://bartl.app).
 
@@ -18,12 +18,12 @@ There is no `restore.sh`. Restore is init with a backup present. The startup mec
 | Local state, engine version newer | upgrade              |
 | Local state, engine version older | abort (no downgrade) |
 
-The same restore path serves disaster recovery, migration to another host, and evacuation to another provider. The reason you move and the time you have do not change the operation. That is Wechselfähigkeit.
+The same Bartl restore path serves disaster recovery, migration to another host, and evacuation to another provider. Moving to another provider reuses the same application-and-state operation; provisioning, transfer, endpoint reachability, and cutover remain surrounding orchestration. This is the application-and-state mechanism required for Wechselfähigkeit, not the complete provider switch.
 
 ## Prerequisites
 
 - A Linux host with Docker and Docker Compose.
-- Nothing provider-specific. No managed database, no object-store API, no cloud snapshot. The stack runs identically on any Docker host, anywhere.
+- Nothing provider-specific inside the Bartl restore path. No managed database, no object-store API, no cloud snapshot. The stack runs identically on any compatible Linux host with Docker and Docker Compose; provisioning and access remain outside that path.
 
 ## Quickstart
 
@@ -35,7 +35,7 @@ docker compose up -d
 
 The `bartl-init` sidecar sees a vanilla install (no backup available) and sets up WordPress from scratch. Wait for the logs to show `BARTL: Stack is ready`, then open http://localhost:8080 and complete the WordPress setup wizard.
 
-Make some changes - create a post, upload an image, install a plugin.
+Make some changes - create a post and upload an image.
 
 ## Export (backup)
 
@@ -80,7 +80,7 @@ scp backups/<blob>.tar.gz backups/<blob>.tar.gz.sha256 newhost:.../backups/
 docker compose up -d         # same restore path, different machine
 ```
 
-Your post, your image, your plugin - all back. There is no separate restore command, and no provider-specific step in the path.
+Your post and your image - both back. There is no separate restore command and no provider-specific step inside the Bartl restore path.
 
 ## Integrity guarantee
 
@@ -99,7 +99,7 @@ Two scripts, not three. The absence of `restore.sh` is the design point.
 
 ## Scope
 
-Bartl moves state. It does not handle infrastructure cutover (DNS, firewall, certificates), scaling, provisioning, or runtime monitoring. Those are orchestration concerns around the stack, not part of the restore-or-init mechanism. On Kubernetes the `override-entrypoint.sh` choreography is unnecessary - initContainers and readiness probes cover the same ordering natively.
+Bartl moves application state. It does not ensure that a backup is already held outside the source provider, and it does not handle infrastructure cutover, DNS, firewall, certificates, identity, user or dependency reachability, scaling, provisioning, or runtime monitoring. Those are orchestration concerns around the stack, not part of the restore-or-init mechanism. On Kubernetes the `override-entrypoint.sh` choreography is unnecessary - initContainers and readiness probes cover the same ordering natively.
 
 ## License
 
