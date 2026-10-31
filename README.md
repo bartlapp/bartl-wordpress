@@ -2,23 +2,23 @@
 
 > The home of this project is [codeberg.org/bartlapp/bartl-wordpress](https://codeberg.org/bartlapp/bartl-wordpress). The GitHub repository is a read-only mirror - please open issues and pull requests on Codeberg.
 
-A stateful WordPress stack whose application state is portable across compatible Docker hosts. Install, restore, upgrade, migration, and disaster recovery use one mechanism, driven by observed state - not five separate procedures. This is the reference implementation of the Bartl pattern.
+A historical WordPress, MySQL and Docker Compose example of restoring application state through the installation path. It illustrates one mechanism, not full conformance to the current Bartl application contract.
 
-For the full thesis, see [bartl.app](https://bartl.app).
+Start with the [Bartl philosophy](https://codeberg.org/bartlapp/bartl-app/src/branch/main/docs/philosophy.md), the [current application contract](https://codeberg.org/bartlapp/bartl-app#application-contract-and-qualification) and [How to bartlize](https://codeberg.org/bartlapp/bartl-app/src/branch/main/docs/how-to-bartlize.md) for new implementations. The procedure below describes this example, not additional Bartl requirements.
 
 ## The design point
 
-There is no `restore.sh`. Restore is init with a backup present. The startup mechanism looks at what state exists and what version the engine is, and does the right thing:
+There is no separate `restore.sh`. This example selects its path from a local version marker and backup availability:
 
-| Observed state                    | Action               |
-| --------------------------------- | -------------------- |
-| No local state, no backup         | fresh install        |
-| No local state, backup present    | restore from blob    |
-| Local state, engine version equal | serve (reboot)       |
-| Local state, engine version newer | upgrade              |
-| Local state, engine version older | abort (no downgrade) |
+| Observed input | Example behavior |
+| --- | --- |
+| No version marker, no backup | release WordPress for initial setup |
+| No version marker, backup present | restore from archive |
+| Version marker equals configured engine version | release existing installation |
+| Engine version newer than marker | release WordPress; database upgrade is deferred to admin access |
+| Engine version older than marker | abort |
 
-The same Bartl restore path serves disaster recovery, migration to another host, and evacuation to another provider. Moving to another provider reuses the same application-and-state operation; provisioning, transfer, endpoint reachability, and cutover remain surrounding orchestration. This is the application-and-state mechanism required for Wechselfähigkeit, not the complete provider switch.
+Moving to another host or provider reuses the application-and-state reconstruction procedure. Provisioning, transfer, endpoint reachability and cutover remain surrounding work. This example does not establish complete provider switching.
 
 ## Prerequisites
 
@@ -55,7 +55,7 @@ backups/<host>_<version>_<timestamp>.tar.gz.sha256  its checksum
 The blob is a single `.tar.gz` containing:
 
 - `database.sql` - a full `mysqldump` of the WordPress database
-- `uploads.tar` - the `wp-content/uploads` tree (media, objects)
+- `uploads.tar` - the `wp-content/uploads` tree, when nonempty
 - `metadata.txt` - version, timestamp, host, database name
 - `SHA256SUMS` - a checksum for each of the above
 
@@ -82,9 +82,13 @@ docker compose up -d         # same restore path, different machine
 
 Your post and your image - both back. There is no separate restore command and no provider-specific step inside the Bartl restore path.
 
-## Integrity guarantee
+## Integrity checks and qualification limits
 
-Before restoring, init verifies the blob's sidecar checksum, then verifies each member against `SHA256SUMS`. A blob that fails either check is refused - init aborts rather than load corrupt state. Restore only ever proceeds from a blob whose bytes are exactly what backup wrote.
+[init.sh](init.sh) checks the archive sidecar and member checksums when present and rejects checksum mismatches. Missing sidecars or `SHA256SUMS` do not stop it. It also tolerates a missing database dump or uploads archive. These checks therefore do not establish complete, verified reconstruction under the current contract.
+
+[backup.sh](backup.sh) writes the archive directly to its final path, then writes the sidecar. Restore selects an archive without requiring that sidecar, so it is not an enforced publication marker. Database capture and uploads capture run sequentially without a shared writer pause; consistency during concurrent changes is not established.
+
+The version marker is not an observation of complete application state. Upgrade completion is not checked before access opens, and plugins/themes in the writable `wp-content` volume are outside the uploads-only backup. Use this example to inspect its mechanism, not as a qualified operating package or a template for the current failure policy.
 
 ## What is in this repo
 
@@ -99,7 +103,9 @@ Two scripts, not three. The absence of `restore.sh` is the design point.
 
 ## Scope
 
-Bartl moves application state. It does not ensure that a backup is already held outside the source provider, and it does not handle infrastructure cutover, DNS, firewall, certificates, identity, user or dependency reachability, scaling, provisioning, or runtime monitoring. Those are orchestration concerns around the stack, not part of the restore-or-init mechanism. On Kubernetes the `override-entrypoint.sh` choreography is unnecessary - initContainers and readiness probes cover the same ordering natively.
+Bartl covers application, infrastructure and responsibility for the complete service. This example covers only a bounded application-state mechanism. It does not supply independently retained backups, infrastructure provisioning, user and dependency access, controlled cutover or a complete recovery-time guarantee.
+
+The Compose marker choreography is specific to this example. Kubernetes initContainers and readiness probes are not a general replacement for application lifecycle coordination: readiness does not stop background writers, and an init container cannot wait for a main process in its own Pod. Select coordination from the application's native procedures under the current contract.
 
 ## License
 
