@@ -4,7 +4,7 @@
 
 A historical WordPress, MySQL and Docker Compose example of restoring application state through the installation path. It illustrates one mechanism, not full conformance to the current Bartl application contract.
 
-Start with the [Bartl philosophy](https://codeberg.org/bartlapp/bartl-app/src/branch/main/docs/philosophy.md), the [current application contract](https://codeberg.org/bartlapp/bartl-app#application-contract-and-qualification) and [How to bartlize](https://codeberg.org/bartlapp/bartl-app/src/branch/main/docs/how-to-bartlize.md) for new implementations. The procedure below describes this example, not additional Bartl requirements.
+Start with the [Bartl philosophy](https://codeberg.org/bartlapp/bartl-app/src/branch/main/docs/philosophy.md), the [current application contract](https://codeberg.org/bartlapp/bartl-app/src/branch/main/docs/application-contract.md) and [How to bartlize](https://codeberg.org/bartlapp/bartl-app/src/branch/main/docs/how-to-bartlize.md) for new implementations. The procedure below describes this example, not additional Bartl requirements.
 
 ## The design point
 
