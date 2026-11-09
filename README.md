@@ -1,10 +1,8 @@
 # bartl-wordpress
 
-> The home of this project is [codeberg.org/bartlapp/bartl-wordpress](https://codeberg.org/bartlapp/bartl-wordpress). The GitHub repository is a read-only mirror - please open issues and pull requests on Codeberg.
-
 A historical WordPress, MySQL and Docker Compose example of restoring application state through the installation path. It illustrates one mechanism, not full conformance to the current Bartl application contract.
 
-Start with the [Bartl philosophy](https://codeberg.org/bartlapp/bartl-app/src/branch/main/docs/philosophy.md), the [current application contract](https://codeberg.org/bartlapp/bartl-app/src/branch/main/docs/application-contract.md) and [How to bartlize](https://codeberg.org/bartlapp/bartl-app/src/branch/main/docs/how-to-bartlize.md) for new implementations. The procedure below describes this example, not additional Bartl requirements.
+Start with the [Bartl philosophy](https://github.com/bartlapp/bartl-app/blob/main/docs/philosophy.md), the [current application contract](https://github.com/bartlapp/bartl-app/blob/main/docs/application-contract.md) and [How to bartlize](https://github.com/bartlapp/bartl-app/blob/main/docs/how-to-bartlize.md) for new implementations. The procedure below describes this example, not additional Bartl requirements.
 
 ## The design point
 
@@ -28,7 +26,7 @@ Moving to another host or provider reuses the application-and-state reconstructi
 ## Quickstart
 
 ```
-git clone https://codeberg.org/bartlapp/bartl-wordpress.git
+git clone https://github.com/bartlapp/bartl-wordpress.git
 cd bartl-wordpress
 docker compose up -d
 ```
